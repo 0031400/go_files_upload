@@ -24,24 +24,23 @@ func Init() {
 		}
 	}()
 }
-func Upload(name, path string) {
-	addTask(name, path)
-}
-func addTask(name, path string) {
+func AddTask(name, path string) {
 	mu.Lock()
 	tasks = append(tasks, task{name, path})
 	mu.Unlock()
 }
 func readUpload() {
-	if config.WebdavURL != "" {
+	if config.WebdavPath != "" {
 		if len(tasks) != 0 {
 			mu.RLock()
 			t := tasks[0]
 			mu.RUnlock()
-			webdav.Upload(t.name, t.path)
-			mu.Lock()
-			tasks = tasks[1:]
-			mu.Unlock()
+			suc := webdav.Upload(t.name, t.path)
+			if suc {
+				mu.Lock()
+				tasks = tasks[1:]
+				mu.Unlock()
+			}
 		}
 	} else {
 		log.Println("lack uploader")
