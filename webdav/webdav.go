@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
 func Upload(name string, path string) bool {
@@ -26,14 +27,49 @@ func Upload(name string, path string) bool {
 		log.Println(err)
 		return false
 	}
-	if res.StatusCode != 201 {
-		b, err := io.ReadAll(res.Body)
-		if err != nil {
-			log.Println(err)
-			return false
-		}
-		log.Printf("%s %d %s\n", url, res.StatusCode, string(b))
+	if res.StatusCode == http.StatusCreated {
+		return true
+	}
+	if res.StatusCode == http.StatusConflict {
+		MkDir(filepath.Dir(path))
 		return false
 	}
-	return true
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	res.Body.Close()
+	log.Printf("%s %d %s\n", url, res.StatusCode, string(b))
+	return false
+}
+func MkDir(relativeDir string) bool {
+	url := config.WebdavPath + relativeDir + "/"
+	req, err := http.NewRequest("MKCOL", url, nil)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	req.SetBasicAuth(config.WebdavUsername, config.WebdavPassword)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	if res.StatusCode == http.StatusCreated {
+		log.Printf("mkdir %s\n", relativeDir)
+		return true
+	}
+	if res.StatusCode == http.StatusConflict {
+		suc := MkDir(filepath.Dir(relativeDir))
+		return suc
+	}
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	res.Body.Close()
+	log.Printf("%s %d %s\n", url, res.StatusCode, string(b))
+	return false
 }

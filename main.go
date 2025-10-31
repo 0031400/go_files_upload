@@ -6,7 +6,7 @@ import (
 	"go_files_upload/durable"
 	"go_files_upload/logger"
 	"go_files_upload/record"
-	"go_files_upload/upload"
+	"go_files_upload/webdav"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,24 +19,33 @@ func main() {
 	config.Init()
 	durable.Init()
 	record.Init()
-	upload.Init()
 	for {
 		time.Sleep(time.Second)
 		items := scanDir(config.Dir)
 		for _, item := range items {
-			if isRightExt(item) && !record.HasRead(item) {
-				record.AddRecord(item)
-				newFileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), filepath.Ext(item))
-				relativePath, err := filepath.Rel(config.Dir, filepath.Join(filepath.Dir(item), newFileName))
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-				upload.AddTask(item, relativePath)
-				log.Printf("add record %s", item)
+			if isRightExt(item) {
+				work(item)
 			}
 		}
 	}
+}
+func work(itemPath string) {
+	if record.HasRead(itemPath) {
+		return
+	}
+	newFileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), filepath.Ext(itemPath))
+	relativeDir, err := filepath.Rel(config.Dir, filepath.Dir(itemPath))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	relativePath := filepath.Join(relativeDir, newFileName)
+	suc := webdav.Upload(itemPath, relativePath)
+	if !suc {
+		return
+	}
+	record.AddRecord(itemPath)
+	log.Printf("add record %s", itemPath)
 }
 func isRightExt(name string) bool {
 	for _, v := range config.Exts {
