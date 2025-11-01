@@ -1,7 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"crypto/sha1"
+	"encoding/hex"
 	"go_files_upload/config"
 	"go_files_upload/durable"
 	"go_files_upload/logger"
@@ -33,7 +34,13 @@ func work(itemPath string) {
 	if record.HasRead(itemPath) {
 		return
 	}
-	newFileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), filepath.Ext(itemPath))
+	b, err := os.ReadFile(itemPath)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	bs := sha1.Sum(b)
+	newFileName := hex.EncodeToString(bs[:]) + filepath.Ext(itemPath)
 	relativeDir, err := filepath.Rel(config.Dir, filepath.Dir(itemPath))
 	if err != nil {
 		log.Println(err)
@@ -45,7 +52,6 @@ func work(itemPath string) {
 		return
 	}
 	record.AddRecord(itemPath)
-	log.Printf("add record %s", itemPath)
 }
 func isRightExt(name string) bool {
 	for _, v := range config.Exts {

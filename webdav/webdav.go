@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 )
 
-func Upload(name string, path string) bool {
-	file, err := os.OpenFile(name, os.O_RDONLY, os.ModePerm)
+func Upload(itemPath string, relativePath string) bool {
+	file, err := os.OpenFile(itemPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		log.Println(err)
 		return false
 	}
-	url := config.WebdavPath + path
+	url := config.WebdavPath + relativePath
 	request, err := http.NewRequest(http.MethodPut, url, file)
 	if err != nil {
 		log.Println(err)
@@ -28,10 +28,11 @@ func Upload(name string, path string) bool {
 		return false
 	}
 	if res.StatusCode == http.StatusCreated {
+		log.Printf("upload %s %s\n", itemPath, relativePath)
 		return true
 	}
 	if res.StatusCode == http.StatusConflict {
-		MkDir(filepath.Dir(path))
+		MkDir(filepath.Dir(relativePath))
 		return false
 	}
 	b, err := io.ReadAll(res.Body)
